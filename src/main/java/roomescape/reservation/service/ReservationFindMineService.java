@@ -8,15 +8,19 @@ import org.springframework.transaction.annotation.Transactional;
 import roomescape.payment.domain.PaymentStatus;
 import roomescape.payment.repository.PaymentRepository;
 import roomescape.reservation.domain.Reservation;
-import roomescape.reservation.dto.MyReservationResponse;
+import roomescape.reservation.dto.MyAdminReservationResponse;
+import roomescape.reservation.dto.MyReservationResponse2;
+import roomescape.reservation.dto.MyUserNonPaidReservationResponse;
+import roomescape.reservation.dto.MyUserPaidReservationResponse;
+import roomescape.reservation.dto.MyWaitingResponse;
 import roomescape.reservation.repository.ReservationRepository;
 import roomescape.waiting.domain.Waiting;
 import roomescape.waiting.repository.WaitingRepository;
 
 @Service
 public class ReservationFindMineService {
-    private static final Comparator<MyReservationResponse> RESERVATION_SORTING_COMPARATOR = Comparator
-            .comparing(MyReservationResponse::date).thenComparing(MyReservationResponse::startAt);
+    private static final Comparator<MyReservationResponse2> RESERVATION_SORTING_COMPARATOR = Comparator
+            .comparing(MyReservationResponse2::getDate).thenComparing(MyReservationResponse2::getStartAt);
 
     private final ReservationRepository reservationRepository;
     private final WaitingRepository waitingRepository;
@@ -31,31 +35,38 @@ public class ReservationFindMineService {
     }
 
     @Transactional(readOnly = true)
-    public List<MyReservationResponse> findMyReservations(Long memberId) {
-        List<MyReservationResponse> reservations = findReservations(memberId);
-        List<MyReservationResponse> waitings = findWaitings(memberId);
+    public List<MyReservationResponse2> findMyReservations(Long memberId) {
+        List<MyReservationResponse2> reservations = findReservations(memberId);
+        List<MyReservationResponse2> waitings = findWaitings(memberId);
 
         return makeMyReservations(reservations, waitings);
     }
 
-    private List<MyReservationResponse> findReservations(Long memberId) {
+    private List<MyReservationResponse2> findReservations(Long memberId) {
         return reservationRepository.findByMemberId(memberId)
                 .stream()
                 .map(this::createResponse)
                 .toList();
     }
 
-    private MyReservationResponse createResponse(Reservation reservation) {
+    private MyReservationResponse2 createResponse(Reservation reservation) {
         return paymentRepository.findByScheduleAndMemberAndStatus(
                         reservation.getSchedule(), reservation.getMember(), PaymentStatus.PAID)
-                .map(payment -> MyReservationResponse.from(reservation, payment))
-                .orElse(MyReservationResponse.from(reservation));
+                .map(payment -> MyUserPaidReservationResponse.from(reservation, payment))
+                .orElse(createNonPaidResponse(reservation));
     }
 
-    private List<MyReservationResponse> findWaitings(Long memberId) {
+    private MyReservationResponse2 createNonPaidResponse(Reservation reservation) {
+        if (reservation.isAdminReserved()) {
+            return MyAdminReservationResponse.from(reservation);
+        }
+        return MyUserNonPaidReservationResponse.from(reservation);
+    }
+
+    private List<MyReservationResponse2> findWaitings(Long memberId) {
         return waitingRepository.findByMemberId(memberId)
                 .stream()
-                .map(waiting -> MyReservationResponse.from(waiting, countOrderOfWaiting(waiting)))
+                .map(waiting -> MyWaitingResponse.from(waiting, countOrderOfWaiting(waiting)))
                 .toList();
     }
 
@@ -64,9 +75,9 @@ public class ReservationFindMineService {
                 waiting.getSchedule(), waiting.getCreatedAt());
     }
 
-    private List<MyReservationResponse> makeMyReservations(List<MyReservationResponse> reservations,
-                                                           List<MyReservationResponse> waitings) {
-        List<MyReservationResponse> response = new ArrayList<>();
+    private List<MyReservationResponse2> makeMyReservations(List<MyReservationResponse2> reservations,
+                                                           List<MyReservationResponse2> waitings) {
+        List<MyReservationResponse2> response = new ArrayList<>();
         response.addAll(reservations);
         response.addAll(waitings);
         response.sort(RESERVATION_SORTING_COMPARATOR);

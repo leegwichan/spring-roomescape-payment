@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import roomescape.auth.dto.LoggedInMember;
-import roomescape.reservation.dto.MyReservationResponse;
+import roomescape.reservation.dto.MyReservationResponse2;
 import roomescape.reservation.dto.ReservationResponse;
 import roomescape.reservation.dto.UserReservationCreateRequest;
 import roomescape.reservation.service.ReservationCreateService;
@@ -45,7 +45,7 @@ public class ReservationController {
     }
 
     @GetMapping("/accounts")
-    public List<MyReservationResponse> findMyReservations(LoggedInMember member) {
+    public List<MyReservationResponse2> findMyReservations(LoggedInMember member) {
         return findMineService.findMyReservations(member.id());
     }
 
